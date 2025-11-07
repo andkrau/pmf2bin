@@ -251,7 +251,7 @@ func buildBin(pmf []byte, tracks []Track, outPath string) error {
 
 		// Write pregap sectors
 		for s := 0; s < t.Pregap; s++ {
-			lba := t.Start - t.Pregap + s
+			lba := t.Start - t.Pregap + s + 150
 			min, sec, frame := lbaToMSF(lba)
 
 			copy(sector[:], empty) // zeroes by default
@@ -275,7 +275,7 @@ func buildBin(pmf []byte, tracks []Track, outPath string) error {
 
 		// Write actual track sectors
 		for s := t.Start; s <= t.End; s++ {
-			lba := s
+			lba := s + 150
 			min, sec, frame := lbaToMSF(lba)
 
 			copy(sector[:], empty) // zeros by default
