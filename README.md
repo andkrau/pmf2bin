@@ -86,8 +86,6 @@ binmerge --split --outdir "./newfolder" "file.cue" "newfile"
 For a deeper look at how **PMF2BIN** performs its conversions, this section describes the internal logic and data handling that make it possible to construct a valid **BIN/CUE** image from Kodak PhotoCD *Premaster* files.  
 Rather than just repackaging data, PMF2BIN parses the `.pmf.ff` metadata, validates track layout and sector counts, and builds each sector to match the 2352-byte format expected by CD imaging tools.
 
----
-
 ### Track and Sector Parsing
 
 - The `.pmf.ff` file lists track metadata lines like:  
@@ -106,8 +104,6 @@ Rather than just repackaging data, PMF2BIN parses the `.pmf.ff` metadata, valida
   - No overlapping tracks
   - Correct PMF file size based on total sectors
 
----
-
 ### Sector Conversion
 
 - Kodak PMF sectors are **2056 bytes**, while CD sectors in a BIN image are **2352 bytes**.
@@ -120,8 +116,6 @@ Rather than just repackaging data, PMF2BIN parses the `.pmf.ff` metadata, valida
 
 - Audio tracks (Mode 4) are written as raw **16-bit stereo PCM** sectors (2352 bytes per sector).  
   If the FF file specifies `AUDIO_MSB`, PMF2BIN swaps bytes per sample to match endianness.
-
----
 
 ### Pregaps and CUE Sheet
 
@@ -136,8 +130,6 @@ Rather than just repackaging data, PMF2BIN parses the `.pmf.ff` metadata, valida
       INDEX 00 28:50:00
       INDEX 01 28:52:00
   ```
-
----
 
 ### Validation
 
