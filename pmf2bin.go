@@ -33,6 +33,20 @@ var (
 )
 
 func init() {
+	// Create EDC Lookup table
+	const polyEDC uint32 = 0xD8018001 // reflected polynomial of 0x04C11DB7
+	for i := 0; i < 256; i++ {
+		r := uint32(i)
+		for j := 0; j < 8; j++ {
+			if r&1 != 0 {
+				r = (r >> 1) ^ polyEDC
+			} else {
+				r >>= 1
+			}
+		}
+		edcLUT[i] = r
+	}
+
 	setConsoleTitle("PMF2BIN")
 }
 
@@ -322,7 +336,10 @@ func buildBin(pmf []byte, tracks []Track, outPath string) (err error) {
 			copy(sector[16:24], sub)
 			// 2048 bytes of data
 			copy(sector[24:2072], data)
-			// EDC and ECC remain zeros
+			// 4-byte calculated EDC
+			edc := computeEDC(sector[16:2072])
+			copy(sector[2072:2076], edc[:])
+			// ECC remains zeros
 			offset = end
 			bw.Write(sector[:])
 		}
@@ -383,4 +400,27 @@ func lbaToMSF(lba int) (int, int, int) {
 func lbaToMSFFormatted(lba int) string {
 	min, sec, frame := lbaToMSF(lba)
 	return fmt.Sprintf("%02d:%02d:%02d", min, sec, frame)
+}
+
+// computeEDC calculates the 32-bit EDC (Error Detection Code) for a CD-ROM XA Mode 2 Form 1 sector.
+// It uses a reflected CRC-32 with polynomial 0x04C11DB7 (reflected as 0xD8018001).
+// The EDC covers 2072 bytes from sync header through user data.
+// Unlike standard CRC-32, no initial or final XOR is applied.
+func computeEDC(data []byte) [4]byte {
+	var edc uint32 = 0
+
+	for _, b := range data {
+		// Standard reflected CRC-32: XOR byte with accumulator LSB,
+		// lookup precomputed value, XOR with shifted accumulator
+		index := byte(edc) ^ b
+		edc = (edc >> 8) ^ edcLUT[index]
+	}
+
+	// Return in little-endian byte order
+	return [4]byte{
+		byte(edc),
+		byte(edc >> 8),
+		byte(edc >> 16),
+		byte(edc >> 24),
+	}
 }
