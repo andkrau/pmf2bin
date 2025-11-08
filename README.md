@@ -4,6 +4,8 @@
 Unlike other tools, which often produce invalid sector layouts, truncated tracks, or corrupted audio, PMF2BIN accurately parses the `.pmf.ff` metadata and constructs each sector correctly.
 This allows you to burn fully functional PhotoCD Portfolio discs with **any CD burner** and **any media**, without requiring proprietary Kodak hardware or media.
 
+[https://github.com/andkrau/pmf2bin](https://github.com/andkrau/pmf2bin)
+
 ---
 
 ## Features
