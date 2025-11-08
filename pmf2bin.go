@@ -230,12 +230,18 @@ func parseFF(ffPath string, pmfLen int) ([]Track, error) {
 	return tracks, nil
 }
 
-func buildBin(pmf []byte, tracks []Track, outPath string) error {
+func buildBin(pmf []byte, tracks []Track, outPath string) (err error) {
 	out, err := os.Create(outPath)
 	if err != nil {
 		return fmt.Errorf("Failed to create %s: %v", outPath, err)
 	}
-	defer out.Close()
+	defer func() {
+		// Always attempt to close, even if an earlier error occurred
+		closeErr := out.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("Close failed: %v", closeErr)
+		}
+	}()
 	bw := bufio.NewWriter(out)
 	var sector [binSector]byte
 	empty := make([]byte, binSector)
@@ -323,7 +329,11 @@ func buildBin(pmf []byte, tracks []Track, outPath string) error {
 	}
 
 	if err := bw.Flush(); err != nil {
-		return fmt.Errorf("flush failed: %v", err)
+		return fmt.Errorf("Flush failed: %v", err)
+	}
+
+	if err := out.Sync(); err != nil {
+		return fmt.Errorf("Sync failed: %v", err)
 	}
 
 	fmt.Printf("Wrote BIN image: %s\n", outPath)
