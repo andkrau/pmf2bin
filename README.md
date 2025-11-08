@@ -74,7 +74,7 @@ If you prefer to split the combined BIN file into separate track images, you can
 Example:
 
 ```
-binmerge -split file.bin
+binmerge --split --outdir "./newfolder" "file.cue" "newfile"
 ```
 
 ---
@@ -125,6 +125,7 @@ Rather than just repackaging data, PMF2BIN parses the `.pmf.ff` metadata, valida
 
 - Pregap lengths are automatically calculated from gaps between tracks in the `.pmf.ff` data.  
 - The `.cue` file is generated alongside the `.bin` with proper `TRACK`, `INDEX 00`, and `INDEX 01` entries:
+
   ```
   FILE "file.bin" BINARY
     TRACK 01 MODE2/2352
