@@ -129,12 +129,18 @@ func setConsoleTitle(title string) {
 	}
 }
 
-func parseFF(ffPath string, pmfLen int) ([]Track, error) {
+func parseFF(ffPath string, pmfLen int) ([]Track, err error) {
 	f, err := os.Open(ffPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %s: %v", ffPath, err)
 	}
-	defer f.Close()
+	defer func() {
+		// Always attempt to close, even if an earlier error occurred
+		closeErr := f.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("Close failed: %v", closeErr)
+		}
+	}()
 
 	scanner := bufio.NewScanner(f)
 	var tracks []Track
@@ -361,12 +367,18 @@ func buildBin(pmf []byte, tracks []Track, outPath string) (err error) {
 	return nil
 }
 
-func writeCue(tracks []Track, cuePath, binName string) error {
+func writeCue(tracks []Track, cuePath, binName string) (err error) {
 	f, err := os.Create(cuePath)
 	if err != nil {
 		return fmt.Errorf("Failed to write cue: %v", err)
 	}
-	defer f.Close()
+	defer func() {
+		// Always attempt to close, even if an earlier error occurred
+		closeErr := out.Close()
+		if err == nil && closeErr != nil {
+			err = fmt.Errorf("Close failed: %v", closeErr)
+		}
+	}()
 
 	fmt.Fprintf(f, "FILE \"%s\" BINARY\n", filepath.Base(binName))
 	for _, t := range tracks {
