@@ -367,7 +367,12 @@ func buildBin(pmf []byte, tracks []Track, outPath string) (err error) {
 			// 4-byte calculated EDC
 			edc := computeEDC(sector[16:2072])
 			copy(sector[2072:2076], edc[:])
-			// ECC remains zeros
+			// 172-byte P-parity
+			pParity := pParityLFSR(sector[12:2076])
+			copy(sector[2076:2248], pParity)
+			// 104-byte Q-parity
+			qParity := qParityLFSR(sector[12:2248])
+			copy(sector[2248:2352], qParity)
 			offset = end
 			bw.Write(sector[:])
 		}
@@ -467,4 +472,145 @@ func gfMult(a, b byte) byte {
 		return 0
 	}
 	return gfPow[int(gfLog[a])+int(gfLog[b])]
+}
+
+// CD-ROM Mode 2 Form 1 P-Parity Generator using a 2-stage LFSR.
+//
+// Instead of computing the parity formula directly, we simulate a shift register
+// that processes sector data sequentially. The feedback taps correspond to the
+// generator polynomial coefficients.
+//
+// For P-parity (2 parity bytes), the generator polynomial is:
+//   g(x) = x² + g₁x + g₀
+// over GF(2⁸) with the standard CD-ROM field polynomial 0x11d.
+// Feedback coefficients for the LFSR are g₀ = 2 and g₁ = 3.
+//
+// Input:  2064 bytes (header + subheader + data + EDC, header bytes treated as 0)
+// Output: 172 bytes organized as:
+//   Bytes 0-85:   r1 values for all 43 columns (LSB, MSB pairs)
+//   Bytes 86-171: r0 values for all 43 columns (LSB, MSB pairs)
+func pParityLFSR(sector []byte) []byte {
+	if len(sector) != 2064 {
+		panic(fmt.Sprintf("sector wrong size: need 2064 bytes, got %d", len(sector)))
+	}
+
+	parity := make([]byte, 172) // 43 columns × 4 bytes
+
+	// Compute parity for each column using LFSR
+	for col := 0; col < 43; col++ {
+		const (
+			g1 = 3 // Feedback coefficient for r1
+			g0 = 2 // Feedback coefficient for r0
+		)
+
+		var r0Lsb, r0Msb byte
+		var r1Lsb, r1Msb byte
+
+		// Process 24 rows vertically through this column
+		pos := 2*col
+		for row := 0; row < 24; row++ {
+			dataLsb := sector[pos]
+			dataMsb := sector[pos+1]
+
+			// Treat header bytes 0-3 as zeros for ECC calculation
+			if pos < 4 {
+				dataLsb = 0
+				if pos < 3 {
+					dataMsb = 0
+				}
+			}
+
+			// LFSR feedback and shift operations
+			feedbackLsb := dataLsb ^ r1Lsb
+			feedbackMsb := dataMsb ^ r1Msb
+
+			r1Lsb = r0Lsb ^ gfMult(feedbackLsb, g1)
+			r1Msb = r0Msb ^ gfMult(feedbackMsb, g1)
+			r0Lsb = gfMult(feedbackLsb, g0)
+			r0Msb = gfMult(feedbackMsb, g0)
+
+			pos += 86 // Stride to next row (2 bytes × 43 columns)
+		}
+
+		parity[col*2]      = r1Lsb
+		parity[col*2+1]    = r1Msb
+		parity[86+col*2]   = r0Lsb
+		parity[86+col*2+1] = r0Msb
+	}
+
+	return parity
+}
+
+// CD-ROM Mode 2 Form 1 Q-Parity Generator using a 2-stage LFSR.
+//
+// Instead of computing the parity formula directly, we simulate a shift register
+// that processes sector data sequentially along diagonals. The feedback taps
+// correspond to the same generator polynomial as P-parity.
+//
+// For Q-parity (2 parity bytes), the generator polynomial is:
+//   g(x) = x² + g₁x + g₀
+// over GF(2⁸) with the standard CD-ROM field polynomial 0x11d.
+// Feedback coefficients for the LFSR are g₀ = 2 and g₁ = 3.
+//
+// Q-parity covers 26 diagonals × 43 elements of interleaved sector data.
+// Diagonals wrap around at byte 2236, following an 88-byte stride pattern.
+//
+// Input:  2236 bytes (header + subheader + data + EDC + P-parity, header bytes treated as 0)
+// Output: 104 bytes organized as follows:
+//   Bytes 0-51:   r1 values for all 26 diagonals (LSB/MSB pairs)
+//   Bytes 52-103: r0 values for all 26 diagonals (LSB/MSB pairs)
+func qParityLFSR(sector []byte) []byte {
+	if len(sector) != 2236 {
+		panic(fmt.Sprintf("sector wrong size: need 2236 bytes, got %d", len(sector)))
+	}
+
+	parity := make([]byte, 104) // 26 diagonals × 4 bytes
+
+	for diag := 0; diag < 26; diag++ {
+		const (
+			g1 = 3 // Feedback coefficient for r1
+			g0 = 2 // Feedback coefficient for r0
+		)
+
+		var r0Lsb, r0Msb byte
+		var r1Lsb, r1Msb byte
+
+		pos := 2 * 43 * diag  // Start of diagonal
+
+		for step := 0; step < 43; step++ {
+			// Wrap diagonal at sector boundary
+			if pos >= 2236 {
+				pos -= 2236
+			}
+
+			dataLsb := sector[pos]
+			dataMsb := sector[pos+1]
+
+			// Treat header bytes 0-3 as zeros for ECC calculation
+			if pos < 4 {
+				dataLsb = 0
+				if pos < 3 {
+					dataMsb = 0
+				}
+			}
+
+			// LFSR feedback and shift operations
+			feedbackLsb := dataLsb ^ r1Lsb
+			feedbackMsb := dataMsb ^ r1Msb
+
+			r1Lsb = r0Lsb ^ gfMult(feedbackLsb, g1)
+			r1Msb = r0Msb ^ gfMult(feedbackMsb, g1)
+			r0Lsb = gfMult(feedbackLsb, g0)
+			r0Msb = gfMult(feedbackMsb, g0)
+
+			pos += 88 // Diagonal stride (2 bytes × 44 positions)
+		}
+
+		parity[diag*2]      = r1Lsb
+		parity[diag*2+1]    = r1Msb
+		parity[52+diag*2]   = r0Lsb
+		parity[52+diag*2+1] = r0Msb
+	}
+
+	return parity
 }
