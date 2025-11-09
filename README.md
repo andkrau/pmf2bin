@@ -70,8 +70,7 @@ These can then be burned to CD using any standard CD writing tool.
 
 ## Multiple BIN Files
 
-If you prefer to split the combined BIN file into separate track images, you can use **binmerge**:
-👉 https://github.com/putnam/binmerge
+If you prefer to split the combined BIN file into separate track images, you can use **binmerge**: https://github.com/putnam/binmerge
 
 Example:
 
@@ -115,7 +114,8 @@ Rather than just repackaging data, PMF2BIN parses the `.pmf.ff` metadata, valida
   3. Inserting the **8-byte subheader** from PMF data
   4. Writing the **2048 bytes of user data**
   5. Computing and writing the **4-byte EDC** (Error Detection Code)
-  6. Zero-filling the **276-byte ECC area** (P-parity and Q-parity)
+  6. Computing and writing the **172-byte P-parity ECC** (Error Correction Code)
+  7. Computing and writing the **104-byte Q-parity ECC** (Error Correction Code)
 
 - Audio tracks (Mode 4) are written as raw **16-bit stereo PCM** sectors (2352 bytes per sector).
   If the FF file specifies `AUDIO_MSB`, PMF2BIN swaps bytes per sample to match endianness.
