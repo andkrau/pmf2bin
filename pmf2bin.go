@@ -151,7 +151,7 @@ func setConsoleTitle(title string) {
 	}
 }
 
-func parseFF(ffPath string, pmfLen int) ([]Track, err error) {
+func parseFF(ffPath string, pmfLen int) (tracks []Track, err error) {
 	f, err := os.Open(ffPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open %s: %v", ffPath, err)
@@ -165,7 +165,6 @@ func parseFF(ffPath string, pmfLen int) ([]Track, err error) {
 	}()
 
 	scanner := bufio.NewScanner(f)
-	var tracks []Track
 	var numExpected int
 	inSection := false
 
@@ -395,7 +394,7 @@ func buildBin(pmf []byte, tracks []Track, outPath string) (err error) {
 }
 
 func writeCue(tracks []Track, cuePath, binName string) (err error) {
-	f, err := os.Create(cuePath)
+	out, err := os.Create(cuePath)
 	if err != nil {
 		return fmt.Errorf("Failed to write cue: %v", err)
 	}
@@ -407,19 +406,19 @@ func writeCue(tracks []Track, cuePath, binName string) (err error) {
 		}
 	}()
 
-	fmt.Fprintf(f, "FILE \"%s\" BINARY\n", filepath.Base(binName))
+	fmt.Fprintf(out, "FILE \"%s\" BINARY\n", filepath.Base(binName))
 	for _, t := range tracks {
 		if t.Mode == 4 {
-			fmt.Fprintf(f, "  TRACK %02d AUDIO\n", t.Num)
+			fmt.Fprintf(out, "  TRACK %02d AUDIO\n", t.Num)
 		} else {
-			fmt.Fprintf(f, "  TRACK %02d MODE2/2352\n", t.Num)
+			fmt.Fprintf(out, "  TRACK %02d MODE2/2352\n", t.Num)
 		}
 
 		if t.Pregap > 0 {
 			min, sec, frame := lbaToMSF(t.Start - t.Pregap)
-			fmt.Fprintf(f, "    INDEX 00 %02d:%02d:%02d\n", min, sec, frame)
+			fmt.Fprintf(out, "    INDEX 00 %02d:%02d:%02d\n", min, sec, frame)
 		}
-		fmt.Fprintf(f, "    INDEX 01 %s\n", lbaToMSFFormatted(t.Start))
+		fmt.Fprintf(out, "    INDEX 01 %s\n", lbaToMSFFormatted(t.Start))
 	}
 	fmt.Printf("Wrote CUE sheet: %s\n", cuePath)
 	return nil
