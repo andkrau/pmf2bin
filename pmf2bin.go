@@ -47,6 +47,28 @@ func init() {
 		edcLUT[i] = r
 	}
 
+	// Creates the exponentiation (gfPow) and logarithm (gfLog) tables
+	// for the Galois Field GF(2^8), essential for Reed-Solomon arithmetic.
+	// The tables are generated using the irreducible polynomial: x^8 + x^4 + x^3 + x^2 + 1,
+	// which corresponds to the reduction value 0x11D.
+	// The process generates successive powers of the primitive element α (alpha).
+	//
+	// When b exceeds 8 bits, b ^= 0x11d reduces it by the irreducible polynomial.
+	// The second loop extends gfPow to 509 elements to avoid modulo 255
+	// operations during multiplication (optimization: gfPow[a+b] instead of gfPow[(a+b)%255]).
+	var b uint16 = 1
+	for i := 0; i < 255; i++ {
+		gfPow[i] = byte(b)
+		gfLog[b] = byte(i)
+		b <<= 1
+		if b&0x100 != 0 {
+			b ^= 0x11d
+		}
+	}
+	for i := 255; i < 509; i++ {
+		gfPow[i] = gfPow[i-255]
+	}
+
 	setConsoleTitle("PMF2BIN")
 }
 
@@ -435,4 +457,14 @@ func computeEDC(data []byte) [4]byte {
 		byte(edc >> 16),
 		byte(edc >> 24),
 	}
+}
+
+// gfMult multiplies two non-zero bytes in GF(2^8) using precomputed logarithm tables.
+// Uses the property: a * b = exp(log(a) + log(b)) modulo 255 in GF(2^8).
+// Returns 0 if either input is 0.
+func gfMult(a, b byte) byte {
+	if a == 0 || b == 0 {
+		return 0
+	}
+	return gfPow[int(gfLog[a])+int(gfLog[b])]
 }
