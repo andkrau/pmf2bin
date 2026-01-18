@@ -23,6 +23,10 @@ This allows you to burn fully functional PhotoCD Portfolio discs with **any CD b
 
 No installation is required — just build from source or download a compiled binary (if available).
 
+The 32-bit build supports Windows XP and above. XP requires SP3, .NET Framework, and PowerShell. Vista requires PowerShell. These dependencies are only required if not running the application via the command line.
+
+The 64-bit build supports Windows 7 and above.
+
 ### Build from Source
 
 ```
