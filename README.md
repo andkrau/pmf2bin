@@ -30,7 +30,7 @@ The 64-bit build supports Windows 7 and above.
 ### Build from Source
 
 ```
-git clone https://github.com/yourusername/pmf2bin.git
+git clone https://github.com/andkrau/pmf2bin.git
 cd pmf2bin
 go build
 ```
